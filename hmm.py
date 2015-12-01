@@ -19,9 +19,9 @@ class HMM(object):
 		Method used to train HMM
 
 		X :	3D Matrix
-			X[:]		= song
-			X[:][:] 	= frame
-			X[:][:][:]	= component
+			X[:]		= songs
+			X[:][:] 	= frames (varying size)
+			X[:][:][:]	= components
 
 		y :	Labels
 			y[:]	= song
@@ -65,7 +65,7 @@ class HMM(object):
 
 		# Initialisation Step
 		for s in range(1,N+1):
-			vit[s,0] = self.transition_model.logprob(0,s) + self.emission_model.logprob(s,X[0,:])
+			vit[s,0] = self.transition_model.logprob(0,s) + self.emission_model.logprob(s,X[0][:])
 			backpointers[s,0] = 0
 
 		# Main Step
@@ -87,7 +87,7 @@ class HMM(object):
 						for i in range(1,N+1)]
 		else:
 			v_st_list = [vit[i,t-1] + self.transition_model.logprob(i,s) \
-						* self.emission_model.logprob(s,X[t,:]) for i in range(1,N+1)]
+						* self.emission_model.logprob(s,X[t][:]) for i in range(1,N+1)]
 		
 		return max(v_st_list)
 
@@ -126,7 +126,7 @@ class TransitionModel(object):
 		self.number_of_states = n
 		
 
-	def train(self, Y):
+	def train(self, y):
 		"""
 		Supervised training of transition model
 
@@ -138,11 +138,14 @@ class TransitionModel(object):
 		"""
 
 		# Augment data with start and end states for training
-		starts
+		Y = []
+		for i in range(len(y)):
+			y[i].insert(0,0)
+			y[i].append(self.number_of_states + 1)
 
-		self.model = self._get_normalised_bigram_counts(Y)
+		self._model = self._get_normalised_bigram_counts(y)
 
-	def _get_normalised_bigram_counts(self,Y):
+	def _get_normalised_bigram_counts(self,y):
 		"""
 		Code adapted from NLTK implementation of supervised training in HMMs
 		"""
@@ -151,7 +154,7 @@ class TransitionModel(object):
 
 		transitions = ConditionalFreqDist()
 		outputs = ConditionalFreqDist()
-		for sequence in Y:
+		for sequence in y:
 			lasts = None
 			for state in sequence:
 				if lasts is not None:
@@ -165,7 +168,7 @@ class TransitionModel(object):
 
 	def logprob(self, i, j):
 
-		return self.model[i].logprob(i)
+		return self._model[i].logprob(i)
 
 class EmissionModel(object):
 	"""
@@ -181,7 +184,7 @@ class EmissionModel(object):
 		"""
 		Supervised training of emission model
 
-		X :	3D Numpy Matrix
+		X :	3D list
 			X[:]		= song
 			X[:][:] 	= frame
 			X[:][:][:]	= component
@@ -206,18 +209,18 @@ class EmissionModel(object):
 			lists[state] = []
 		for i, song in enumerate(y):
 			for j, state in enumerate(song):
-				lists[state].append(X[i,j,:])
+				lists[state].append(X[i][j][:])
 
 		# make create numpy version cos numpy's great
 		xs = dict()
 		for state in self.states:
-			xs[state] = np.asarray(aligned_data[state])
+			xs[state] = np.asarray(lists[state])
 		del lists
 
 		# Calculate means and covs
 		for state in self.states:
 			mean = np.mean(xs[state],axis=0)
-			cov = np.cov(xs[state].T)s
+			cov = np.cov(xs[state].T)
 			model[state] = multivariate_normal(mean,cov)
 
 		return model
