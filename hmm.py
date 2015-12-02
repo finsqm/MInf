@@ -8,7 +8,7 @@ class HMM(object):
 	"""
 	Hidden Markov Model
 	"""
-	def __init__(self,number_of_states,dim):
+	def __init__(self,number_of_states=60,dim=12):
 		self.number_of_states = number_of_states
 		self.transition_model = TransitionModel(number_of_states)
 		self.emission_model = EmissionModel(number_of_states,dim)
@@ -27,9 +27,9 @@ class HMM(object):
 			y[:]	= song
 			y[:]	= Labels
 		"""
-		
-		self.transition_model.train(y)
+
 		self.emission_model.train(X,y)
+		self.transition_model.train(y)
 
 		self.trained = True
 
@@ -50,14 +50,14 @@ class HMM(object):
 		X here is different from X in self.train(X,y), here it is 2D
 		"""
 
-		(T, D) = X.shape
+		if not self.trained:
+			raise Exception('Model not trained')
+
+		T = len(X)
 		N = self.number_of_states
 
-		if D != 12:
-			raise Exception("Input data does not have 12 dimensions")
-
 		# Create path prob matrix
-		vit = np.zeros((self.number_of_states + 2, T))
+		vit = np.zeros((N+2, T))
 		# Create backpointers matrix
 		backpointers = np.empty((N+2, T))
 
@@ -138,12 +138,12 @@ class TransitionModel(object):
 		"""
 
 		# Augment data with start and end states for training
-		Y = []
+		Y = y[:]
 		for i in range(len(y)):
-			y[i].insert(0,0)
-			y[i].append(self.number_of_states + 1)
+			Y[i].insert(0,0)
+			Y[i].append(self.number_of_states + 1)
 
-		self._model = self._get_normalised_bigram_counts(y)
+		self._model = self._get_normalised_bigram_counts(Y)
 
 	def _get_normalised_bigram_counts(self,y):
 		"""
@@ -176,9 +176,9 @@ class EmissionModel(object):
 	Different Gaussian parameters for each state
 	"""
 	def __init__(self,number_of_states,dim):
-		self.number_of_states = n 	# can change
+		self.number_of_states = number_of_states 	# can change
 		self.dim = dim 				# should be 12
-		self.states = range(1,n+1)
+		self.states = range(1,number_of_states+1)
 
 	def train(self,X,y):
 		"""
@@ -194,10 +194,10 @@ class EmissionModel(object):
 			columns = chord at each time step
 		"""
 
-		self.model = self._get_mle_estimates(X,y)
+		self._model = self._get_mle_estimates(X,y)
 
 	def logprob(self, state, obv):
-		return self.model[state].logpdf(obv)
+		return self._model[state].logpdf(obv)
 
 	def _get_mle_estimates(self, X, y):
 
