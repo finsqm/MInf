@@ -34,7 +34,7 @@ if __name__ == "__main__":
 
 	hmm = HMM(NUMBER_OF_STATES,DIM)
 
-	accuracy = run(hmm,data)
+	run(hmm,data)
 
 
 

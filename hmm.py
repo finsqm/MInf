@@ -3,6 +3,9 @@ import scipy
 import sklearn
 from nltk.probability import (ConditionalFreqDist, ConditionalProbDist, MLEProbDist)
 from scipy.stats import multivariate_normal
+from numpy.linalg import LinAlgError
+
+ZER0_VECTOR = [0,0,0,0,0,0,0,0,0,0,0,0]
 
 class HMM(object):
 	"""
@@ -33,6 +36,41 @@ class HMM(object):
 
 		self.trained = True
 
+	def test(self, X, y):
+		"""
+		Method for testing whether the predictions for XX match Y.
+
+		X :	3D Matrix
+			X[:]		= songs
+			X[:][:] 	= frames (varying size)
+			X[:][:][:]	= components
+
+		y :	Labels
+			y[:]	= song
+			y[:]	= Labels
+		"""
+
+		if not self.trained:
+			raise Exception('Model not trained')
+
+		y_pred = []
+		for song in X:
+			y_pred_i = self.viterbi(song)
+			y_pred.append(y_pred_i)
+
+		# Compare
+		count = 0
+		correct = 0
+		for i, song in enumerate(y):
+			for j, frame in enumerate(song):
+				count += 1
+				if frame == y_pred[i][j]:
+					correct += 1
+
+		return count, correct
+
+
+
 	def viterbi(self, X):
 		"""
 		Viterbi forward pass algorithm
@@ -49,9 +87,6 @@ class HMM(object):
 		State N+1	= finish state
 		X here is different from X in self.train(X,y), here it is 2D
 		"""
-
-		if not self.trained:
-			raise Exception('Model not trained')
 
 		T = len(X)
 		N = self.number_of_states
@@ -82,6 +117,8 @@ class HMM(object):
 
 	def _find_max_vit(self,s,t,vit,X,termination=False):
 
+		N = self.number_of_states
+
 		if termination:
 			v_st_list = [vit[i,t] + self.transition_model.logprob(i,s) \
 						for i in range(1,N+1)]
@@ -92,6 +129,8 @@ class HMM(object):
 		return max(v_st_list)
 
 	def _find_max_back(self,s,t,vit,X,termination=False):
+
+		N = self.number_of_states
 		
 		if termination:
 			b_st_list = np.array([vit[i,t] + self.transition_model.logprob(i,s) \
@@ -102,7 +141,7 @@ class HMM(object):
 		
 		return np.argmax(b_st_list) + 1
 
-	def _find_sequence(vit,backpointers,N,T):
+	def _find_sequence(self,vit,backpointers,N,T):
 		
 		seq = [None for i in range(T)]
 
@@ -124,6 +163,7 @@ class TransitionModel(object):
 	
 	def __init__(self, n):
 		self.number_of_states = n
+		self._model = None
 		
 
 	def train(self, y):
@@ -179,6 +219,7 @@ class EmissionModel(object):
 		self.number_of_states = number_of_states 	# can change
 		self.dim = dim 				# should be 12
 		self.states = range(1,number_of_states+1)
+		self._model = None
 
 	def train(self,X,y):
 		"""
@@ -203,7 +244,7 @@ class EmissionModel(object):
 
 		model = dict()
 		
-		# ALIGN DATA
+		# align data to states
 		lists = dict()
 		for state in self.states:
 			lists[state] = []
@@ -219,9 +260,15 @@ class EmissionModel(object):
 
 		# Calculate means and covs
 		for state in self.states:
-			mean = np.mean(xs[state],axis=0)
-			cov = np.cov(xs[state].T)
-			model[state] = multivariate_normal(mean,cov)
+			if len(xs[state]) > 0:
+				mean = np.mean(xs[state],axis=0)
+				cov = np.cov(xs[state].T)
+				try:
+					model[state] = multivariate_normal(mean,cov)
+				except LinAlgError:
+					model[state] = multivariate_normal(mean,cov=1.0)
+			else:
+				model[state] = multivariate_normal(mean=ZER0_VECTOR,cov=1.0)
 
 		return model
 

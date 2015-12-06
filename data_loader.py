@@ -169,7 +169,7 @@ class DataLoader(object):
 
 	def generate_train_test(self, partition=0.33):
 		
-		n = len(self.XX))
+		n = len(self.XX)
 		j = int(n - (float(n) * partition))
 
 		XX_train = self.XX[0:j]
