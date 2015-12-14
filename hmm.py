@@ -11,7 +11,7 @@ class HMM(object):
 	"""
 	Hidden Markov Model
 	"""
-	def __init__(self,number_of_states=60,dim=12):
+	def __init__(self,number_of_states=12,dim=12):
 		self.number_of_states = number_of_states
 		self.transition_model = TransitionModel(number_of_states)
 		self.emission_model = EmissionModel(number_of_states,dim)
@@ -240,6 +240,12 @@ class EmissionModel(object):
 	def logprob(self, state, obv):
 		return self._model[state].logpdf(obv)
 
+	def _get_nb_estimates(self, X, y):
+
+		model = []
+
+		
+
 	def _get_mle_estimates(self, X, y):
 
 		model = dict()
@@ -252,7 +258,7 @@ class EmissionModel(object):
 			for j, state in enumerate(song):
 				lists[state].append(X[i][j][:])
 
-		# make create numpy version cos numpy's great
+		# create numpy version cos numpy's great
 		xs = dict()
 		for state in self.states:
 			xs[state] = np.asarray(lists[state])

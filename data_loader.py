@@ -2,6 +2,17 @@ import numpy as np
 from sklearn import cross_validation
 import csv
 from collections import Counter
+from sklearn.cross_validation import KFold
+from hmm import *
+import logging
+import sys
+
+logger = logging.getLogger()
+logger.setLevel(logging.DEBUG)
+
+ch = logging.StreamHandler(sys.stdout)
+ch.setLevel(logging.DEBUG)
+logger.addHandler(ch)
 
 class DataLoader(object):
 	"""
@@ -12,7 +23,7 @@ class DataLoader(object):
 		
 		self.XX = []
 		self.Y = []
-		self.key = None
+		self.keys = []
 
 	def load(self,csv_file_name):
 
@@ -43,6 +54,7 @@ class DataLoader(object):
 
 				# Note: mode not currently used
 				key, mode = self._process_key(row['key'])
+				self.keys.append(key)
 				X_i = self._process_Xi(row['tpc_hist_counts'])
 				y_i = self._process_yi(row['chords_raw'],row['chord_types_raw'],key)
 
@@ -120,11 +132,7 @@ class DataLoader(object):
 		"""
 		Returns tpc of most occuring chord
 
-		return (3 * tpc) + type where:
-			type:
-				if maj = 1
-				if min = 2
-				if dom = 3
+		return tpc + 1
 		"""
 		chord_list = chords_raw.split(',')
 		counter = Counter(chord_list)
@@ -152,7 +160,7 @@ class DataLoader(object):
 
 		tpc = (pc - key) % 12
 
-		return (tpc * 3) + chord_type
+		return tpc + 1
 		
 
 	def _process_XX(self,raw_XX):
@@ -174,11 +182,13 @@ class DataLoader(object):
 
 		XX_train = self.XX[0:j]
 		Y_train = self.Y[0:j]
+		keys_train = self.keys[0:j]
 
 		XX_test = self.XX[j:n]
 		Y_test = self.Y[j:n]
+		keys_test = self.keys[j:n]
 
-		data = Data(XX_train, Y_train, XX_test, Y_test)
+		data = Data(XX_train, Y_train, XX_test, Y_test, keys_train, keys_test)
 
 		return data
 
@@ -186,12 +196,83 @@ class Data(object):
 	"""
 	Simple data holder
 	"""
-	def __init__(self, XX_train, Y_train, XX_test, Y_test):
+	def __init__(self, XX_train, Y_train, XX_test, Y_test, keys_train, keys_test):
 		self.XX_train = XX_train
 		self.Y_train = Y_train
 		self.XX_test = XX_test
 		self.Y_test = Y_test
+		self.keys_train = keys_train
+		self.keys_test = keys_test
+
+	def cross_val(self,n=10):
+		"""
+		i : ith partition
+		n : n-crossvalidation
+		"""
+
+		XX_train = self.XX_train
+		Y_train = self.Y_train
+
+		L = len(self.XX_train)
+		kf = KFold(L,n_folds=n)
+
+		models = []
+		scores = []
+
+		c = 0
+
+		for c, (train_indexes, val_indexes) in enumerate(kf):
+
+			logger.debug("On Fold " + str(c))
+
+			xx_train = []
+			y_train = []
+			xx_val = []
+			y_val = []
+			for i in train_indexes:
+				xx_train.append(XX_train[i][:])
+				y_train.append(Y_train[i][:])
+			for j in val_indexes:
+				xx_val.append(XX_train[j][:])
+				y_val.append(Y_train[j][:])
+
+			model = HMM()
+
+			logger.debug(str(len(xx_train)) + "," + str(len(y_train)))
+			model.train(xx_train,y_train)
+
+			logger.debug("Testing ...")
+			count, correct = model.test(xx_val,y_val)
+
+			score = float(correct) / float(count)
+			logger.debug("Fold " + str(c) + " scored " + str(score))
+
+			models.append(model)
+			scores.append(score)
+
+		max_score = max(scores)
+
+		max_index = 0
+		for idx, score in enumerate(scores):
+			if score == max_score:
+				max_index = idx
+				break
+
+		return models[max_index]
+
+
+
+
+
+
+
+
+
 		
+
+
+
+
 
 
 
