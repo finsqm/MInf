@@ -11,7 +11,7 @@ ZER0_VECTOR = [0,0,0,0,0,0,0,0,0,0,0,0]
 
 class HMM(object):
 	"""
-	Hidden Markov Model
+	Baseline Hidden Markov Model
 	"""
 	def __init__(self,number_of_states=12,dim=12):
 		self.number_of_states = number_of_states
@@ -164,9 +164,12 @@ class TransitionModel(object):
 	"""
 	
 	def __init__(self, n):
+		"""
+		Note for transition model states include start and end (0 and n+1)
+		"""
 		self.number_of_states = n
 		self._model = None
-		
+		self.states = range(self.number_of_states+2)
 
 	def train(self, y):
 		"""
@@ -188,6 +191,27 @@ class TransitionModel(object):
 		self._model = self._get_normalised_bigram_counts(Y)
 
 	def _get_normalised_bigram_counts(self,y):
+
+		model = dict()
+
+		for state in self.states:
+			model[state] = np.zeros(self.number_of_states + 2)
+
+		for sequence in y:
+			lasts = None
+			for state in sequence:
+				if lasts is not None:
+					model[lasts][state] += 1
+				lasts = state
+
+		# Smooth and Normalise
+		for state in self.states:
+			model[state] += 1
+			model[state] = normalize(model[state][:,np.newaxis], axis=0).ravel()
+
+		return model
+
+	def doesnt_work(self,y):
 		"""
 		Code adapted from NLTK implementation of supervised training in HMMs
 		"""
@@ -208,9 +232,9 @@ class TransitionModel(object):
 
 		return model
 
-	def logprob(self, i, j):
-
-		return self._model[i].logprob(i)
+	def logprob(self, state, next_state):
+		prob = self._model[state][next_state]
+		return math.log(prob,2)
 
 class EmissionModel(object):
 	"""
@@ -297,6 +321,75 @@ class EmissionModel(object):
 				model[state] = multivariate_normal(mean=ZER0_VECTOR,cov=1.0)
 
 		return model
+
+class EmissionModel_A(EmissionModel):
+	"""
+	EmissionModel for HMM that only looks at first
+	note in the bar
+	"""
+	def __init__(self, number_of_states, dim):
+		super(EmissionModel_A, self).__init__(number_of_states,dim)
+
+	def logprob(self, state, note_list):
+		note = note_list[0]
+		prob = self._model[state][note]
+		return math.log(prob,2)
+
+	def _get_nb_estimates(self, A, y):
+
+		model = dict()
+
+		for state in self.states:
+			model[state] = np.zeros(12)
+		for i, song in enumerate(A):
+			for j, note_list in enumerate(song):
+				state = y[i][j]
+				note = note_list[0]
+				model[state][note] += 1
+
+		# Smooth and Normalise
+		for state in self.states:
+			model[state] += 1
+			model[state] = normalize(model[state][:,np.newaxis], axis=0).ravel()
+
+		return model
+
+class HMM_A(HMM):
+	"""
+	Baseline HMM that only looks at the first note in the bar (for testing)
+	"""
+	def __init__(self,number_of_states=12,dim=12):
+		self.number_of_states = number_of_states
+		self.transition_model = TransitionModel(number_of_states)
+		self.emission_model = EmissionModel_A(number_of_states,dim)
+		self.trained = False
+
+class EmissionModel_None(EmissionModel):
+	"""
+	EmissionModel for HMM that only looks at first
+	note in the bar
+	"""
+	def __init__(self, number_of_states, dim):
+		super(EmissionModel_A, self).__init__(number_of_states,dim)
+
+	def logprob(self, state, note_list):
+		return math.log(1,2)
+
+	def train(self,X,y):
+		pass
+
+class HMM_None(HMM):
+	"""
+	Baseline HMM that does not look at the notes at all
+	"""
+	def __init__(self,number_of_states=12,dim=12):
+		self.number_of_states = number_of_states
+		self.transition_model = TransitionModel(number_of_states)
+		self.emission_model = EmissionModel_None(number_of_states,dim)
+		self.trained = False
+
+
+
 
 
 
