@@ -1,9 +1,11 @@
 import numpy as np
 import scipy
-import sklearn
+import math
+from sklearn.preprocessing import normalize
 from nltk.probability import (ConditionalFreqDist, ConditionalProbDist, MLEProbDist)
 from scipy.stats import multivariate_normal
 from numpy.linalg import LinAlgError
+
 
 ZER0_VECTOR = [0,0,0,0,0,0,0,0,0,0,0,0]
 
@@ -235,16 +237,34 @@ class EmissionModel(object):
 			columns = chord at each time step
 		"""
 
-		self._model = self._get_mle_estimates(X,y)
+		self._model = self._get_nb_estimates(X,y)
 
 	def logprob(self, state, obv):
-		return self._model[state].logpdf(obv)
+		logprob = 0
+		for i, count in enumerate(obv):
+			prob = count * self._model[state][i]
+			if prob != 0:
+				logprob += math.log(prob,2)
+		return logprob
 
 	def _get_nb_estimates(self, X, y):
 
-		model = []
+		model = dict()
 
-		
+		for state in self.states:
+			model[state] = np.zeros(self.dim)
+		for i, song in enumerate(X):
+			for j, frame in enumerate(song):
+				state = y[i][j]
+				model[state] += frame
+
+		# Smooth and Normalise
+		for state in self.states:
+			model[state] += 1
+			model[state] = normalize(model[state][:,np.newaxis], axis=0).ravel()
+
+		return model
+
 
 	def _get_mle_estimates(self, X, y):
 

@@ -14,6 +14,12 @@ if __name__ == "__main__":
 
 	model = data.cross_val()
 
+	count, correct = model.test(data.XX_test,data.Y_test)
+
+	score = float(correct) / float(count)
+
+	print score
+
 
 	
 
