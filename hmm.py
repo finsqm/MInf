@@ -5,6 +5,7 @@ from sklearn.preprocessing import normalize
 from nltk.probability import (ConditionalFreqDist, ConditionalProbDist, MLEProbDist)
 from scipy.stats import multivariate_normal
 from numpy.linalg import LinAlgError
+from random import randint
 
 
 ZER0_VECTOR = [0,0,0,0,0,0,0,0,0,0,0,0]
@@ -13,7 +14,7 @@ class HMM(object):
 	"""
 	Baseline Hidden Markov Model
 	"""
-	def __init__(self,number_of_states=12,dim=12):
+	def __init__(self,number_of_states=24,dim=12):
 		self.number_of_states = number_of_states
 		self.transition_model = TransitionModel(number_of_states)
 		self.emission_model = EmissionModel(number_of_states,dim)
@@ -23,10 +24,11 @@ class HMM(object):
 		"""
 		Method used to train HMM
 
-		X :	3D Matrix
-			X[:]		= songs
-			X[:][:] 	= frames (varying size)
-			X[:][:][:]	= components
+		X :	4D Matrix
+			X[:]			= songs
+			X[:][:] 		= frames (varying size)
+			X[:][:][:]		= notes
+			X[:][:][:][:]	= components
 
 		y :	Labels
 			y[:]	= song
@@ -42,10 +44,11 @@ class HMM(object):
 		"""
 		Method for testing whether the predictions for XX match Y.
 
-		X :	3D Matrix
-			X[:]		= songs
-			X[:][:] 	= frames (varying size)
-			X[:][:][:]	= components
+		X :	4D Matrix
+			X[:]			= songs
+			X[:][:] 		= frames (varying size)
+			X[:][:][:]		= notes
+			X[:][:][:][:]	= components
 
 		y :	Labels
 			y[:]	= song
@@ -66,21 +69,26 @@ class HMM(object):
 		for i, song in enumerate(y):
 			for j, frame in enumerate(song):
 				count += 1
-				if frame == y_pred[i][j]:
+				if frame % 2 == 0:
+					other = -1
+				else:
+					other = 1
+				if (frame == y_pred[i][j]) or (frame + other == y_pred[i][j]):
 					correct += 1
+					print frame
 
 		return count, correct
-
-
 
 	def viterbi(self, X):
 		"""
 		Viterbi forward pass algorithm
 		determines most likely state (chord) sequence from observations
 
-		X : Observation Matrix (song)
-			rows 	= each observation at time t 
-			columns	= component of observation (prob dist over 12 notes)
+		X :	3D Matrix
+
+			X[:] 		= frames (varying size)
+			X[:][:]		= notes
+			X[:][:][:]	= components
 
 		Returns state (chord) sequence
 
@@ -251,10 +259,11 @@ class EmissionModel(object):
 		"""
 		Supervised training of emission model
 
-		X :	3D list
-			X[:]		= song
-			X[:][:] 	= frame
-			X[:][:][:]	= component
+		X :	4D Matrix
+			X[:]			= songs
+			X[:][:] 		= frames (varying size)
+			X[:][:][:]		= notes
+			X[:][:][:][:]	= components
 
 		y :	sequences of chords
 			rows	= songs
@@ -321,73 +330,6 @@ class EmissionModel(object):
 				model[state] = multivariate_normal(mean=ZER0_VECTOR,cov=1.0)
 
 		return model
-
-class EmissionModel_A(EmissionModel):
-	"""
-	EmissionModel for HMM that only looks at first
-	note in the bar
-	"""
-	def __init__(self, number_of_states, dim):
-		super(EmissionModel_A, self).__init__(number_of_states,dim)
-
-	def logprob(self, state, note_list):
-		note = note_list[0]
-		prob = self._model[state][note]
-		return math.log(prob,2)
-
-	def _get_nb_estimates(self, A, y):
-
-		model = dict()
-
-		for state in self.states:
-			model[state] = np.zeros(12)
-		for i, song in enumerate(A):
-			for j, note_list in enumerate(song):
-				state = y[i][j]
-				note = note_list[0]
-				model[state][note] += 1
-
-		# Smooth and Normalise
-		for state in self.states:
-			model[state] += 1
-			model[state] = normalize(model[state][:,np.newaxis], axis=0).ravel()
-
-		return model
-
-class HMM_A(HMM):
-	"""
-	Baseline HMM that only looks at the first note in the bar (for testing)
-	"""
-	def __init__(self,number_of_states=12,dim=12):
-		self.number_of_states = number_of_states
-		self.transition_model = TransitionModel(number_of_states)
-		self.emission_model = EmissionModel_A(number_of_states,dim)
-		self.trained = False
-
-class EmissionModel_None(EmissionModel):
-	"""
-	EmissionModel for HMM that only looks at first
-	note in the bar
-	"""
-	def __init__(self, number_of_states, dim):
-		super(EmissionModel_A, self).__init__(number_of_states,dim)
-
-	def logprob(self, state, note_list):
-		return math.log(1,2)
-
-	def train(self,X,y):
-		pass
-
-class HMM_None(HMM):
-	"""
-	Baseline HMM that does not look at the notes at all
-	"""
-	def __init__(self,number_of_states=12,dim=12):
-		self.number_of_states = number_of_states
-		self.transition_model = TransitionModel(number_of_states)
-		self.emission_model = EmissionModel_None(number_of_states,dim)
-		self.trained = False
-
 
 
 

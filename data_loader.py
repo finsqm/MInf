@@ -29,14 +29,13 @@ class DataLoader(object):
 
 		raw_XX = [] # 3D list (2nd dim is mutable)
 		raw_Y = []  # 2D list (2nd dim is mutable)
-		raw_AA = []
 
 		with open(csv_file_name) as csv_file:
 			reader = csv.DictReader(csv_file,delimiter=';')
 			past_name = None
 			X = []
 			y = []
-			A = []
+
 			for row in reader:
 				# Each row corresponds to a frame (bar)
 				# Using 'filename_sv' to determine song boundaries
@@ -45,11 +44,9 @@ class DataLoader(object):
 						raw_XX.append(X)
 					if y:
 						raw_Y.append(y)
-					if A:
-						raw_AA.append(A)
+
 					X = []
 					y = []
-					A = []
 
 				past_name = row['filename_sv']
 
@@ -60,9 +57,10 @@ class DataLoader(object):
 				# Note: mode not currently used
 				key, mode = self._process_key(row['key'])
 				self.keys.append(key)
-				X_i = self._process_Xi(row['tpc_hist_counts'])
+				X_i = self._process_Xi(row['tpc_raw'],row['beat'],\
+					row['division'],row['durtatum'],row['mcm_48'],\
+					row['metrical_weight'],row['syncopicity'],row['tatum'])
 				y_i = self._process_yi(row['chords_raw'],row['chord_types_raw'],key)
-				A_i = self._process_Ai(row['tpc_raw'])
 
 				# get rid of bars with no chords
 				if not y_i:
@@ -70,18 +68,14 @@ class DataLoader(object):
 
 				X.append(X_i)
 				y.append(y_i)
-				A.append(A_i)
 
 			if X:
 				raw_XX.append(X)
 			if y:
 				raw_Y.append(y)
-			if A:
-				raw_AA.append(A)
 
-		self.XX = self._process_XX(raw_XX)
-		self.Y = self._process_Y(raw_Y)
-		self.AA = self._process_AA(raw_AA)
+		self.XX = self._process_XX(raw_XX) 	# 4D
+		self.Y = self._process_Y(raw_Y) 	# 2D
 
 	def _process_key(self,key_raw):
 		"""
@@ -132,11 +126,51 @@ class DataLoader(object):
 		return pc
 		
 		
-	def _process_Xi(self,tpc_hist_counts):
+	def _process_string_list(self,tpc_hist_counts):
 		"""
 		Convert from string to list
 		"""
 		return map(int,tpc_hist_counts.split(','))
+
+	def _process_Xi(self, tpc_raw, beat, division, durtatum, 
+						mcm_48, metrical_weight, syncopicity, tatum):
+		"""
+		Process input vectors
+		Xi: List of numpy arrays
+		"""
+		features_strings = [tpc_raw, beat, division, durtatum,\
+							 mcm_48, metrical_weight, syncopicity, tatum]
+		features_lists = map(self._process_string_list(), features_string)
+
+		features = []
+		L = len(tpc_raw)
+		for i in range(L):
+			x = []
+			for feature in features_lists:
+				# TODO: Find way to get previous row's last for this first's previous
+				if i == 0:
+					if i == (L - 1):
+						x.append(feature[i])
+						x.append(feature[i])
+						x.append(feature[i])
+					else:
+						x.append(feature[i])
+						x.append(feature[i])
+						x.append(feature[i+1])
+				elif i == (L - 1):
+					x.append(feature[i])
+					x.append(feature[i-1])
+					x.append(feature[i])
+				else:
+					x.append(feature[i])
+					x.append(feature[i-1])
+					x.append(feature[i+1])
+
+			x_np = np.asarray(x)
+			features.append(x_np)
+
+		return features
+
 
 	def _process_yi(self,chords_raw,chord_types_raw,key):
 		"""
@@ -157,11 +191,11 @@ class DataLoader(object):
 		chord_type_str = type_list[idx]
 
 		if ('j' in chord_type_str) or ('6' in chord_type_str):
+			chord_type = 0
+		if ('-' in chord_type_str) or ('m' in chord_type_str):
 			chord_type = 1
-		elif ('-' in chord_type_str) or ('m' in chord_type_str):
-			chord_type = 2
 		else:
-			chord_type = 3
+			chord_type = 0
 
 		try:
 			pc = self._get_pc(chord[0],chord[1])
@@ -170,14 +204,32 @@ class DataLoader(object):
 
 		tpc = (pc - key) % 12
 
-		return tpc + 1
+		return tpc * 2 + 1 + chord_type  
 
 	def _process_Ai(self,tpc_raw):
 		"""
 		Returns sequence of notes
 		"""
 		return self._process_Xi(tpc_raw)
-		
+
+	def _process_Mi(self,metrical_weight):
+		"""
+		Returns indexes of first and thirs beat notes
+		If none then looks at all notes
+		"""
+		ms = self._process_Xi(metrical_weight)
+
+		indexes = []
+		for i, m in enumerate(ms):
+			if m > 1:
+				indexes.append(i)
+
+		if not indexes:
+			for i, m in enumerate(ms):
+				indexes.append(i)
+
+		return indexes
+
 	def _process_XX(self,raw_XX):
 		"""
 		Does nothing at present
@@ -196,6 +248,12 @@ class DataLoader(object):
 		"""
 		return raw_AA
 
+	def _process_MM(self,raw_MM):
+		"""
+		Does nothing at present
+		"""
+		return raw_MM
+
 	def generate_train_test(self, partition=0.33):
 		
 		n = len(self.XX)
@@ -204,14 +262,13 @@ class DataLoader(object):
 		XX_train = self.XX[0:j]
 		Y_train = self.Y[0:j]
 		keys_train = self.keys[0:j]
-		AA_train = self.AA[0:j]
 
 		XX_test = self.XX[j:n]
 		Y_test = self.Y[j:n]
 		keys_test = self.keys[j:n]
-		AA_test = self.AA[j:n]
 
-		data = Data(XX_train, Y_train, XX_test, Y_test, keys_train, keys_test, AA_train, AA_test)
+		data = Data(XX_train, Y_train, XX_test, Y_test, \
+			keys_train, keys_test,)
 
 		return data
 
@@ -219,68 +276,14 @@ class Data(object):
 	"""
 	Simple data holder
 	"""
-	def __init__(self, XX_train, Y_train, XX_test, Y_test, keys_train, keys_test, AA_train, AA_test):
+	def __init__(self, XX_train, Y_train, XX_test, \
+			Y_test, keys_train, keys_test):
 		self.XX_train = XX_train
 		self.Y_train = Y_train
 		self.XX_test = XX_test
 		self.Y_test = Y_test
 		self.keys_train = keys_train
 		self.keys_test = keys_test
-		self.AA_train = AA_train
-		self.AA_test = AA_test
-
-	def cross_val_A(self,n=10):
-
-		AA_train = self.AA_train
-		Y_train = self.Y_train
-
-		L = len(self.AA_train)
-		kf = KFold(L,n_folds=n)
-
-		models = []
-		scores = []
-
-		c = 0
-
-		for c, (train_indexes, val_indexes) in enumerate(kf):
-
-			logger.debug("On Fold " + str(c))
-
-			aa_train = []
-			y_train = []
-			aa_val = []
-			y_val = []
-			for i in train_indexes:
-				aa_train.append(AA_train[i][:])
-				y_train.append(Y_train[i][:])
-			for j in val_indexes:
-				aa_val.append(AA_train[j][:])
-				y_val.append(Y_train[j][:])
-
-			model = HMM_A()
-
-			logger.debug(str(len(aa_train)) + "," + str(len(y_train)))
-			model.train(aa_train,y_train)
-
-			logger.debug("Testing ...")
-			count, correct = model.test(aa_val,y_val)
-
-			score = float(correct) / float(count)
-			logger.debug("Fold " + str(c) + " scored " + str(score))
-
-			models.append(model)
-			scores.append(score)
-
-		max_score = max(scores)
-
-		max_index = 0
-		for idx, score in enumerate(scores):
-			if score == max_score:
-				max_index = idx
-				break
-
-		return models[max_index]
-
 
 	def cross_val(self,n=10):
 		"""

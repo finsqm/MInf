@@ -9,12 +9,12 @@ if __name__ == "__main__":
 
 	# Load Data
 	dl = DataLoader()
-	dl.load('results.csv')
+	dl.load('all_chords.csv')
 	data = dl.generate_train_test()
 
-	model = data.cross_val()
+	model = data.cross_val_A()
 
-	count, correct = model.test(data.XX_test,data.Y_test)
+	count, correct = model.test(data.AA_test,data.Y_test,data.MM_test)
 
 	score = float(correct) / float(count)
 
