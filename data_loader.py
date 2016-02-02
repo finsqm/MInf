@@ -55,12 +55,15 @@ class DataLoader(object):
 					continue
 
 				# Note: mode not currently used
+
 				key, mode = self._process_key(row['key'])
 				self.keys.append(key)
 				X_i = self._process_Xi(row['tpc_raw'],row['beat'],\
 					row['division'],row['durtatum'],row['mcm_48'],\
-					row['metrical_weight'],row['syncopicity'],row['tatum'])
+					row['metrical_weight'],row['syncopation'],row['tatum'])
 				y_i = self._process_yi(row['chords_raw'],row['chord_types_raw'],key)
+
+
 
 				# get rid of bars with no chords
 				if not y_i:
@@ -130,20 +133,23 @@ class DataLoader(object):
 		"""
 		Convert from string to list
 		"""
-		return map(int,tpc_hist_counts.split(','))
+		return map(float,tpc_hist_counts.split(','))
 
 	def _process_Xi(self, tpc_raw, beat, division, durtatum, 
-						mcm_48, metrical_weight, syncopicity, tatum):
+						mcm_48, metrical_weight, syncopation, tatum):
 		"""
 		Process input vectors
 		Xi: List of numpy arrays
 		"""
 		features_strings = [tpc_raw, beat, division, durtatum,\
-							 mcm_48, metrical_weight, syncopicity, tatum]
-		features_lists = map(self._process_string_list(), features_string)
+							 mcm_48, metrical_weight, syncopation, tatum]
+
+		features_lists = [None]*8
+		for i, feat in enumerate(features_strings):
+			features_lists[i] = self._process_string_list(feat)
 
 		features = []
-		L = len(tpc_raw)
+		L = len(features_lists[0])
 		for i in range(L):
 			x = []
 			for feature in features_lists:
@@ -176,7 +182,7 @@ class DataLoader(object):
 		"""
 		Returns tpc of most occuring chord
 
-		return tpc + 1
+		major and minor
 		"""
 		chord_list = chords_raw.split(',')
 		counter = Counter(chord_list)

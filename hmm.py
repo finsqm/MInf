@@ -6,6 +6,7 @@ from nltk.probability import (ConditionalFreqDist, ConditionalProbDist, MLEProbD
 from scipy.stats import multivariate_normal
 from numpy.linalg import LinAlgError
 from random import randint
+from emission import *
 
 
 ZER0_VECTOR = [0,0,0,0,0,0,0,0,0,0,0,0]
@@ -263,14 +264,29 @@ class EmissionModel(object):
 			X[:]			= songs
 			X[:][:] 		= frames (varying size)
 			X[:][:][:]		= notes
-			X[:][:][:][:]	= components
+			X[:][:][:][:]	= components (numpy)
 
 		y :	sequences of chords
 			rows	= songs
 			columns = chord at each time step
 		"""
 
-		self._model = self._get_nb_estimates(X,y)
+		chord_tones = self._get_chord_tones(X,y)
+
+		svc_data_to_ct = SVC()
+
+		self._model = 
+
+
+
+	def _get_true_chord_tonics_and_modes(self,y):
+		"""
+		input y is list of lists of type: [0:24]
+
+		Returns pc of chord for each frame and modes
+
+		modes: 0 if maj, 1 if min
+		"""
 
 	def logprob(self, state, obv):
 		logprob = 0
@@ -328,6 +344,37 @@ class EmissionModel(object):
 					model[state] = multivariate_normal(mean,cov=1.0)
 			else:
 				model[state] = multivariate_normal(mean=ZER0_VECTOR,cov=1.0)
+
+		return model
+
+class EmissionModel_A(EmissionModel):
+	"""
+	EmissionModel for HMM that only looks at first note (not used at the moment)
+	"""
+	def __init__(self, number_of_states, dim):
+		super(EmissionModel_A, self).__init__(number_of_states,dim)
+
+	def logprob(self, state, note_list):
+		note = note_list[0]
+		prob = self._model[state][note]
+		return math.log(prob,2)
+
+	def _get_nb_estimates(self, X, y):
+
+		model = dict()
+
+		for state in self.states:
+			model[state] = np.zeros(12)
+		for i, song in enumerate(X):
+			for j, note_list in enumerate(song):
+				state = y[i][j]
+				for note in note_list:
+					model[state][note] += 1
+
+		# Smooth and Normalise
+		for state in self.states:
+			model[state] += 1
+			model[state] = normalize(model[state][:,np.newaxis], axis=0).ravel()
 
 		return model
 
