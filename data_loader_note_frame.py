@@ -27,8 +27,8 @@ class DataLoader(object):
 
 	def load(self,csv_file_name):
 
-		raw_XX = [] # 3D list (2nd dim is mutable)
-		raw_Y = []  # 2D list (2nd dim is mutable)
+		raw_XX = [] # 3D list
+		raw_Y = []  # 2D list
 
 		with open(csv_file_name) as csv_file:
 			reader = csv.DictReader(csv_file,delimiter=';')
@@ -37,7 +37,7 @@ class DataLoader(object):
 			y = []
 
 			for row in reader:
-				# Each row corresponds to a frame (bar)
+				# Each row corresponds to a note
 				# Using 'filename_sv' to determine song boundaries
 				if past_name != row['filename_sv']:
 					if X:
@@ -58,9 +58,7 @@ class DataLoader(object):
 
 				key, mode = self._process_key(row['key'])
 				self.keys.append(key)
-				X_i = self._process_Xi(row['tpc_raw'],row['beat'],\
-					row['division'],row['durtatum'],row['mcm_48'],\
-					row['metrical_weight'],row['syncopation'],row['tatum'])
+				X_i = self._process_Xi(row['tpc_raw'], row['durtatum'])
 				y_i = self._process_yi(row['chords_raw'],row['chord_types_raw'],key)
 
 

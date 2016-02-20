@@ -7,6 +7,10 @@ from scipy.stats import multivariate_normal
 from numpy.linalg import LinAlgError
 from random import randint
 from emission import *
+from utils import *
+from sklearn.neighbors import *
+from sklearn.tree import *
+import copy
 
 
 ZER0_VECTOR = [0,0,0,0,0,0,0,0,0,0,0,0]
@@ -76,7 +80,6 @@ class HMM(object):
 					other = 1
 				if (frame == y_pred[i][j]) or (frame + other == y_pred[i][j]):
 					correct += 1
-					print frame
 
 		return count, correct
 
@@ -192,7 +195,7 @@ class TransitionModel(object):
 		"""
 
 		# Augment data with start and end states for training
-		Y = y[:]
+		Y = copy.copy(y)
 		for i in range(len(y)):
 			Y[i].insert(0,0)
 			Y[i].append(self.number_of_states + 1)
@@ -271,30 +274,57 @@ class EmissionModel(object):
 			columns = chord at each time step
 		"""
 
-		chord_tones = self._get_chord_tones(X,y)
+		self._train_chord_tones(X,y)
 
-		svc_data_to_ct = SVC()
+	def _train_chord_tones(self, X, y):
 
-		self._model = 
+		chord_tones = get_chord_tones(X, y)
 
+		######################################################
 
+		#logger.info('Predicting chord tones from data')
 
-	def _get_true_chord_tonics_and_modes(self,y):
-		"""
-		input y is list of lists of type: [0:24]
+		X_np, ct_np = get_concat_ct_X(X, chord_tones)
 
-		Returns pc of chord for each frame and modes
+		#logger.info('Training Decision Tree model ...')
+		self.dt_part1 = DecisionTreeClassifier()
+		print X_np.shape
+		print ct_np.shape
+		self.dt_part1.fit(X_np,ct_np)
 
-		modes: 0 if maj, 1 if min
-		"""
+		######################################################
+
+		X_ct , y_ct = get_ct_features(X, y, chord_tones)
+
+		#logger.info('Predicting chords from true chord tones')
+
+		#logger.info('Training Decision Tree model ...')
+		self.dt_part2 = DecisionTreeClassifier()
+		self.dt_part2.fit(X_ct, y_ct)
 
 	def logprob(self, state, obv):
-		logprob = 0
-		for i, count in enumerate(obv):
-			prob = count * self._model[state][i]
-			if prob != 0:
-				logprob += math.log(prob,2)
-		return logprob
+
+		a = [1,2,4,5,7,8,10,11,12,13,14,15,16,17,18,19,20,21,22,23]
+
+		X = []
+		for note in obv:
+			X.append(np.delete(note, a))
+
+		X = np.asarray(X)
+		
+		predicted_ct = self.dt_part1.predict(X)
+
+		x = np.zeros(12)
+
+		for i, note in enumerate(X):
+			if predicted_ct[i] == 1:
+				x[int(note[0])] = 1
+
+		x = np.asarray(x)
+
+		[logprobs] = self.dt_part2.predict_log_proba([x])
+
+		return logprobs[state - 1]
 
 	def _get_nb_estimates(self, X, y):
 
@@ -344,37 +374,6 @@ class EmissionModel(object):
 					model[state] = multivariate_normal(mean,cov=1.0)
 			else:
 				model[state] = multivariate_normal(mean=ZER0_VECTOR,cov=1.0)
-
-		return model
-
-class EmissionModel_A(EmissionModel):
-	"""
-	EmissionModel for HMM that only looks at first note (not used at the moment)
-	"""
-	def __init__(self, number_of_states, dim):
-		super(EmissionModel_A, self).__init__(number_of_states,dim)
-
-	def logprob(self, state, note_list):
-		note = note_list[0]
-		prob = self._model[state][note]
-		return math.log(prob,2)
-
-	def _get_nb_estimates(self, X, y):
-
-		model = dict()
-
-		for state in self.states:
-			model[state] = np.zeros(12)
-		for i, song in enumerate(X):
-			for j, note_list in enumerate(song):
-				state = y[i][j]
-				for note in note_list:
-					model[state][note] += 1
-
-		# Smooth and Normalise
-		for state in self.states:
-			model[state] += 1
-			model[state] = normalize(model[state][:,np.newaxis], axis=0).ravel()
 
 		return model
 

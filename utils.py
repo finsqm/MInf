@@ -53,3 +53,41 @@ def get_chord_tones(X, y):
 			chord_tones.append(ith_song_tones)
 
 		return chord_tones
+
+def get_ct_features(X, y, chord_tones):
+		
+		X_ct = []
+		y_ct = []
+
+
+		for i, song in enumerate(X):
+			for j, frame in enumerate(song):
+				x_ij = np.zeros(12)
+				for k, note in enumerate(frame):
+					if chord_tones[i][j][k] == 1:
+						x_ij[int(note[0])] = 1
+				X_ct.append(x_ij)
+				y_ct.append(y[i][j])
+
+		X_ct = np.asarray(X_ct)
+		y_ct = np.asarray(y_ct)
+
+		return X_ct, y_ct
+
+def get_concat_ct_X(X, ct):
+
+	a = [1,2,4,5,7,8,10,11,12,13,14,15,16,17,18,19,20,21,22,23]
+
+	ct_np = []
+	X_np = []
+	for i, song in enumerate(ct):
+		for j, frame in enumerate(song):
+			ct_np += frame
+			for note in X[i][j]:
+				X_np.append(np.delete(note, a))
+
+	X_np = np.asarray(X_np)
+	ct_np = np.asarray(ct_np)
+
+	return X_np, ct_np
+
