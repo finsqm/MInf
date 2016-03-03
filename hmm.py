@@ -10,6 +10,7 @@ from emission import *
 from utils import *
 from sklearn.neighbors import *
 from sklearn.tree import *
+from sklearn.svm import *
 import copy
 
 
@@ -274,9 +275,9 @@ class EmissionModel(object):
 			columns = chord at each time step
 		"""
 
-		self._train_chord_tones(X,y)
+		self._train_chord_tones_svm(X,y)
 
-	def _train_chord_tones(self, X, y):
+	def _train_chord_tones_dt(self, X, y):
 
 		chord_tones = get_chord_tones(X, y)
 
@@ -302,6 +303,32 @@ class EmissionModel(object):
 		self.dt_part2 = DecisionTreeClassifier()
 		self.dt_part2.fit(X_ct, y_ct)
 
+	def _train_chord_tones_svm(self, X, y):
+
+		chord_tones = get_chord_tones(X, y)
+
+		######################################################
+
+		#logger.info('Predicting chord tones from data')
+
+		X_np, ct_np = get_concat_ct_X(X, chord_tones)
+
+		#logger.info('Training Decision Tree model ...')
+		self.dt_part1 = SVC(decision_function_shape='ovo')
+		print X_np.shape
+		print ct_np.shape
+		self.dt_part1.fit(X_np,ct_np)
+
+		######################################################
+
+		X_ct , y_ct = get_ct_features(X, y, chord_tones)
+
+		#logger.info('Predicting chords from true chord tones')
+
+		#logger.info('Training Decision Tree model ...')
+		self.dt_part2 = SVC(decision_function_shape='ovo',probability=True)
+		self.dt_part2.fit(X_ct, y_ct)
+
 	def logprob(self, state, obv):
 
 		a = [1,2,4,5,7,8,10,11,12,13,14,15,16,17,18,19,20,21,22,23]
@@ -324,7 +351,8 @@ class EmissionModel(object):
 
 		[logprobs] = self.dt_part2.predict_log_proba([x])
 
-		return logprobs[state - 1]
+		#return logprobs[state - 1]
+		return 0
 
 	def _get_nb_estimates(self, X, y):
 

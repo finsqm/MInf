@@ -61,8 +61,6 @@ class DataLoader(object):
 				X_i = self._process_Xi(row['tpc_raw'], row['durtatum'])
 				y_i = self._process_yi(row['chords_raw'],row['chord_types_raw'],key)
 
-
-
 				# get rid of bars with no chords
 				if not y_i:
 					continue
@@ -133,16 +131,14 @@ class DataLoader(object):
 		"""
 		return map(float,tpc_hist_counts.split(','))
 
-	def _process_Xi(self, tpc_raw, beat, division, durtatum, 
-						mcm_48, metrical_weight, syncopation, tatum):
+	def _process_Xi(self, tpc_raw, durtatum):
 		"""
 		Process input vectors
 		Xi: List of numpy arrays
 		"""
-		features_strings = [tpc_raw, beat, division, durtatum,\
-							 mcm_48, metrical_weight, syncopation, tatum]
+		features_strings = [tpc_raw, durtatum]
 
-		features_lists = [None]*8
+		features_lists = [None]*2
 		for i, feat in enumerate(features_strings):
 			features_lists[i] = self._process_string_list(feat)
 

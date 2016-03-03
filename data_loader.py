@@ -338,6 +338,8 @@ class Data(object):
 
 		max_score = max(scores)
 
+		print max_score
+
 		max_index = 0
 		for idx, score in enumerate(scores):
 			if score == max_score:
