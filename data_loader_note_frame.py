@@ -25,9 +25,9 @@ class DataLoader(object):
 		self.Y = []
 		self.keys = []
 
-	def load(self,csv_file_name):
+	def load(self,csv_file_name='just_notes.csv'):
 
-		raw_XX = [] # 3D list
+		raw_XX = [] # 2D list
 		raw_Y = []  # 2D list
 
 		with open(csv_file_name) as csv_file:
@@ -58,7 +58,7 @@ class DataLoader(object):
 
 				key, mode = self._process_key(row['key'])
 				self.keys.append(key)
-				X_i = self._process_Xi(row['tpc_raw'], row['durtatum'])
+				X_i = self._process_Xi(row['tpc_raw'], row['duratum'])
 				y_i = self._process_yi(row['chords_raw'],row['chord_types_raw'],key)
 
 				# get rid of bars with no chords
@@ -131,46 +131,16 @@ class DataLoader(object):
 		"""
 		return map(float,tpc_hist_counts.split(','))
 
-	def _process_Xi(self, tpc_raw, durtatum):
+	def _process_Xi(self, tpc_raw, duratum_raw):
 		"""
 		Process input vectors
 		Xi: List of numpy arrays
 		"""
-		features_strings = [tpc_raw, durtatum]
 
-		features_lists = [None]*2
-		for i, feat in enumerate(features_strings):
-			features_lists[i] = self._process_string_list(feat)
+		tpc = int(tpc_raw)
+		duratum = int(duratum_raw)
 
-		features = []
-		L = len(features_lists[0])
-		for i in range(L):
-			x = []
-			for feature in features_lists:
-				# TODO: Find way to get previous row's last for this first's previous
-				if i == 0:
-					if i == (L - 1):
-						x.append(feature[i])
-						x.append(feature[i])
-						x.append(feature[i])
-					else:
-						x.append(feature[i])
-						x.append(feature[i])
-						x.append(feature[i+1])
-				elif i == (L - 1):
-					x.append(feature[i])
-					x.append(feature[i-1])
-					x.append(feature[i])
-				else:
-					x.append(feature[i])
-					x.append(feature[i-1])
-					x.append(feature[i+1])
-
-			x_np = np.asarray(x)
-			features.append(x_np)
-
-		return features
-
+		return tpc, duratum
 
 	def _process_yi(self,chords_raw,chord_types_raw,key):
 		"""

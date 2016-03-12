@@ -275,7 +275,7 @@ class EmissionModel(object):
 			columns = chord at each time step
 		"""
 
-		self._train_chord_tones_svm(X,y)
+		self._train_chord_tones_dt(X,y)
 
 	def _train_chord_tones_dt(self, X, y):
 
@@ -331,6 +331,10 @@ class EmissionModel(object):
 
 	def logprob(self, state, obv):
 
+		return self.logprob_dt(state,obv)
+
+	def logprob_dt(self, state, obv):
+
 		a = [1,2,4,5,7,8,10,11,12,13,14,15,16,17,18,19,20,21,22,23]
 
 		X = []
@@ -351,8 +355,7 @@ class EmissionModel(object):
 
 		[logprobs] = self.dt_part2.predict_log_proba([x])
 
-		#return logprobs[state - 1]
-		return 0
+		return logprobs[state - 1]
 
 	def _get_nb_estimates(self, X, y):
 
