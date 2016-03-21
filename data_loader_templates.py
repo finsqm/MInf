@@ -3,7 +3,7 @@ from sklearn import cross_validation
 import csv
 from collections import Counter
 from sklearn.cross_validation import KFold
-from hmm import *
+from hmm_with_mini import *
 import logging
 import sys
 
@@ -55,7 +55,6 @@ class DataLoader(object):
 					continue
 
 				# Note: mode not currently used
-
 				key, mode = self._process_key(row['key'])
 				self.keys.append(key)
 				X_i = self._process_Xi(row['tpc_raw'],row['durtatum'])
@@ -168,7 +167,7 @@ class DataLoader(object):
 
 		if ('j' in chord_type_str) or ('6' in chord_type_str):
 			chord_type = 0
-		if ('-' in chord_type_str) or ('m' in chord_type_str):
+		elif ('-' in chord_type_str) or ('m' in chord_type_str):
 			chord_type = 1
 		else:
 			chord_type = 0
@@ -180,7 +179,7 @@ class DataLoader(object):
 
 		tpc = (pc - key) % 12
 
-		return tpc * 2 + 1 + chord_type  
+		return tpc * 2 + 1 + chord_type
 
 	def _process_Ai(self,tpc_raw):
 		"""
@@ -315,5 +314,10 @@ class Data(object):
 			if score == max_score:
 				max_index = idx
 				break
+
+		logger.info("Final Test ...")
+
+		count, correct = models[max_index].test(self.XX_test,self.Y_test)
+		logger.info("Final Accuracy: {0}".format(float(correct) / float(count)))
 
 		return models[max_index]

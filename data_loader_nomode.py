@@ -3,7 +3,7 @@ from sklearn import cross_validation
 import csv
 from collections import Counter
 from sklearn.cross_validation import KFold
-from hmm import *
+from hmm_with_mini_nomode import *
 import logging
 import sys
 
@@ -55,14 +55,10 @@ class DataLoader(object):
 					continue
 
 				# Note: mode not currently used
-
 				key, mode = self._process_key(row['key'])
 				self.keys.append(key)
-				X_i = self._process_Xi(row['tpc_raw'],row['beat'],\
-					row['division'],row['durtatum'],row['mcm_48'],\
-					row['metrical_weight'],row['syncopation'],row['tatum'])
+				X_i = self._process_Xi(row['tpc_raw'],row['durtatum'])
 				y_i = self._process_yi(row['chords_raw'],row['chord_types_raw'],key)
-
 
 
 				# get rid of bars with no chords
@@ -135,45 +131,18 @@ class DataLoader(object):
 		"""
 		return map(float,tpc_hist_counts.split(','))
 
-	def _process_Xi(self, tpc_raw, beat, division, durtatum, 
-						mcm_48, metrical_weight, syncopation, tatum):
+	def _process_Xi(self, tpc_raw, durtatum):
 		"""
 		Process input vectors
 		Xi: List of numpy arrays
 		"""
-		features_strings = [tpc_raw, beat, division, durtatum,\
-							 mcm_48, metrical_weight, syncopation, tatum]
+		features_strings = [tpc_raw, durtatum]
 
-		features_lists = [None]*8
+		features_lists = [None]*2
 		for i, feat in enumerate(features_strings):
 			features_lists[i] = self._process_string_list(feat)
 
-		features = []
-		L = len(features_lists[0])
-		for i in range(L):
-			x = []
-			for feature in features_lists:
-				# TODO: Find way to get previous row's last for this first's previous
-				if i == 0:
-					if i == (L - 1):
-						x.append(feature[i])
-						x.append(feature[i])
-						x.append(feature[i])
-					else:
-						x.append(feature[i])
-						x.append(feature[i])
-						x.append(feature[i+1])
-				elif i == (L - 1):
-					x.append(feature[i])
-					x.append(feature[i-1])
-					x.append(feature[i])
-				else:
-					x.append(feature[i])
-					x.append(feature[i-1])
-					x.append(feature[i+1])
-
-			x_np = np.asarray(x)
-			features.append(x_np)
+		features = zip(features_lists[0],features_lists[1])
 
 		return features
 
@@ -210,7 +179,7 @@ class DataLoader(object):
 
 		tpc = (pc - key) % 12
 
-		return tpc * 2 + 1 + chord_type  
+		return tpc + 1
 
 	def _process_Ai(self,tpc_raw):
 		"""
@@ -346,34 +315,4 @@ class Data(object):
 				max_index = idx
 				break
 
-		logger.info("Final Test ...")
-
-		count, correct = models[max_index].test(self.XX_test,self.Y_test)
-		logger.info("Final Accuracy: {0}".format(float(correct) / float(count)))
-
 		return models[max_index]
-
-
-
-
-
-
-
-
-
-		
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
