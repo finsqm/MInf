@@ -48,7 +48,7 @@ class HMM(object):
 
 	def test(self, X, y):
 
-		return self._test_max_em(X,y)
+		return self._test_vit(X,y)
 
 	def _test_max_em(self, X, y):
 
@@ -111,9 +111,12 @@ class HMM(object):
 			raise Exception('Model not trained')
 
 		y_pred = []
-		for song in X:
+		L = len(X)
+		for i, song in enumerate(X):
 			y_pred_i = self.viterbi(song)
 			y_pred.append(y_pred_i)
+			print "{0} percent complete ... ".format((float(i + 1) / float(L)) * 100)
+		#print y_pred
 
 		# Compare
 		count = 0
@@ -325,8 +328,8 @@ class EmissionModel(object):
 
 		self.chord_hmms = dict()
 		for state in self.states:
-			chord_tones_states = get_chord_tones_states_more(X, y)
-			hmm_i = MINIHMM(state)
+			chord_tones_states = get_chord_tones_cpc(X, y)
+			hmm_i = MINIHMM(state, number_of_states=12)
 			hmm_i.train(X,y,chord_tones_states)
 			self.chord_hmms[state] = hmm_i
 

@@ -21,7 +21,7 @@ class HMM(object):
 	"""
 	Baseline Hidden Markov Model
 	"""
-	def __init__(self,number_of_states=2,dim=12):
+	def __init__(self,number_of_states=12,dim=12):
 		self.number_of_states = number_of_states
 		self.transition_model = TransitionModel(number_of_states)
 		self.emission_model = EmissionModel(number_of_states,dim)
@@ -48,7 +48,7 @@ class HMM(object):
 
 	def test(self, X, y):
 
-		return self._test_max_em(X,y)
+		return self._test_vit(X,y)
 
 	def _test_max_em(self, X, y):
 

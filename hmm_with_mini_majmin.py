@@ -12,35 +12,37 @@ from sklearn.neighbors import *
 from sklearn.tree import *
 from sklearn.svm import *
 import copy
+from mini_hmm import *
 
 
 ZER0_VECTOR = [0,0,0,0,0,0,0,0,0,0,0,0]
 
-class MINIHMM(object):
+class HMM(object):
 	"""
 	Baseline Hidden Markov Model
 	"""
-	def __init__(self,chord,number_of_states=2,dim=12):
+	def __init__(self,number_of_states=2,dim=12):
 		self.number_of_states = number_of_states
-		self.transition_model = TransitionModel(number_of_states, chord)
-		self.emission_model = EmissionModel(number_of_states, dim, chord)
-		self.chord = chord
+		self.transition_model = TransitionModel(number_of_states)
+		self.emission_model = EmissionModel(number_of_states,dim)
 		self.trained = False
 		self.states = range(1,number_of_states+1)
 
-	def train(self,X,y,chord_tones):
+	def train(self,X,y):
 		"""
 		Method used to train HMM
 
-		X :	frame (2D)
+		X :	2D Matrix
+			X[:]		= songs
+			X[:][:]		= notes
 
 		y :	Labels
 			y[:]	= song
 			y[:]	= Labels
 		"""
 
-		self.emission_model.train(X,y,chord_tones)
-		self.transition_model.train(y,chord_tones)
+		self.emission_model.train(X,y)
+		self.transition_model.train(y)
 
 		self.trained = True
 
@@ -113,8 +115,6 @@ class MINIHMM(object):
 			y_pred_i = self.viterbi(song)
 			y_pred.append(y_pred_i)
 
-		print y_pred
-
 		# Compare
 		count = 0
 		correct = 0
@@ -135,53 +135,13 @@ class MINIHMM(object):
 		Viterbi forward pass algorithm
 		determines most likely state (chord) sequence from observations
 
-		X :	1D Matrix
+		X :	3D Matrix
 
-			X[:]	= notes
+			X[:] 		= frames (varying size)
+			X[:][:]		= notes
+			X[:][:][:]	= components
 
 		Returns state (chord) sequence
-
-		Notes:
-		State 0 	= starting state
-		State N+1	= finish state
-		X here is different from X in self.train(X,y), here it is 2D
-		"""
-
-		T = len(X)
-		N = self.number_of_states
-
-		# Create path prob matrix
-		vit = np.zeros((N+2, T))
-		# Create backpointers matrix
-		backpointers = np.empty((N+2, T))
-
-		# Note: t here is 0 indexed, 1 indexed in Jurafsky et al (2014)
-
-		# Initialisation Step
-		for s in range(1,N+1):
-			vit[s,0] = self.transition_model.logprob(0,s) + self.emission_model.logprob(s,X[0])
-			backpointers[s,0] = 0
-
-		# Main Step
-		for t in range(1,T):
-			for s in range(1,N+1):
-				vit[s,t] = self._find_max_vit(s,t,vit,X)
-				backpointers[s,t] = self._find_max_back(s,t,vit,X)
-
-		# Termination Step
-		vit[N+1,T-1] = self._find_max_vit(N+1,T-1,vit,X,termination=True)
-		backpointers[N+1,T-1] = self._find_max_back(N+1,T-1,vit,X,termination=True)
-
-		return self._find_sequence(vit,backpointers,N,T)
-
-	def get_viterbi_logprob(self, X):
-		"""
-		Viterbi forward pass algorithm
-		determines most likely state (chord) sequence from observations
-
-		X :	2D Matrix - frame level
-
-		Returns logprob of X
 
 		Notes:
 		State 0 	= starting state
@@ -214,8 +174,7 @@ class MINIHMM(object):
 		vit[N+1,T-1] = self._find_max_vit(N+1,T-1,vit,X,termination=True)
 		backpointers[N+1,T-1] = self._find_max_back(N+1,T-1,vit,X,termination=True)
 
-		return vit[N+1,T-1]
-
+		return self._find_sequence(vit,backpointers,N,T)
 
 	def _find_max_vit(self,s,t,vit,X,termination=False):
 
@@ -226,7 +185,7 @@ class MINIHMM(object):
 						for i in range(1,N+1)]
 		else:
 			v_st_list = [vit[i,t-1] + self.transition_model.logprob(i,s) \
-						* self.emission_model.logprob(s,X[t]) for i in range(1,N+1)]
+						* self.emission_model.logprob(s,X[t][:]) for i in range(1,N+1)]
 		
 		return max(v_st_list)
 
@@ -263,16 +222,15 @@ class TransitionModel(object):
 	model[i][j] = probability of transitioning to j in i
 	"""
 	
-	def __init__(self, n, chord):
+	def __init__(self, n):
 		"""
 		Note for transition model states include start and end (0 and n+1)
 		"""
 		self.number_of_states = n
-		self.chord = chord
 		self._model = None
 		self.states = range(self.number_of_states+2)
 
-	def train(self, y, chord_tones):
+	def train(self, y):
 		"""
 		Supervised training of transition model
 
@@ -284,13 +242,12 @@ class TransitionModel(object):
 		"""
 
 		# Augment data with start and end states for training
-		CT = copy.copy(chord_tones)
-		for i, song in enumerate(chord_tones):
-			for j, frame in enumerate(song):
-				CT[i][j].insert(0,0)
-				CT[i][j].append(self.number_of_states + 1)
+		Y = copy.copy(y)
+		for i in range(len(y)):
+			Y[i].insert(0,0)
+			Y[i].append(self.number_of_states + 1)
 
-		self._model = self._get_normalised_bigram_counts_mini(CT,y)
+		self._model = self._get_normalised_bigram_counts(Y)
 
 	def _get_normalised_bigram_counts(self,y):
 
@@ -305,29 +262,6 @@ class TransitionModel(object):
 				if lasts is not None:
 					model[lasts][state] += 1
 				lasts = state
-
-		# Smooth and Normalise
-		for state in self.states:
-			model[state] += 1
-			model[state] = normalize(model[state][:,np.newaxis], axis=0).ravel()
-
-		return model
-
-	def _get_normalised_bigram_counts_mini(self,CT,y):
-
-		model = dict()
-
-		for state in self.states:
-			model[state] = np.zeros(self.number_of_states + 2)
-
-		for i, song in enumerate(CT):
-			for j, frame in enumerate(song):
-				if y[i][j] == self.chord:
-					for state in frame:
-						lasts = None
-						if lasts is not None:
-							model[lasts][state] += 1
-						lasts = state
 
 		# Smooth and Normalise
 		for state in self.states:
@@ -366,14 +300,13 @@ class EmissionModel(object):
 	Gaussian Emission Model
 	Different Gaussian parameters for each state
 	"""
-	def __init__(self,number_of_states,dim,chord):
-		self.number_of_states = number_of_states
-		self.dim = dim
-		self.states = range(1,number_of_states+1)	# [1,2]
+	def __init__(self,number_of_states,dim=12):
+		self.number_of_states = number_of_states 	# can change
+		self.dim = dim 				# should be 12
+		self.states = range(1,number_of_states+1)
 		self._model = None
-		self.chord = chord
 
-	def train(self,X,y,chord_tones):
+	def train(self,X,y):
 		"""
 		Supervised training of emission model
 
@@ -386,7 +319,16 @@ class EmissionModel(object):
 			columns = chord at each time step
 		"""
 
-		self._train_smooth_frequency_mini(X,y,chord_tones)
+		self._train_chord_tones_hmm(X,y)
+
+	def _train_chord_tones_hmm(self, X, y):
+
+		self.chord_hmms = dict()
+		for state in self.states:
+			chord_tones_states = get_chord_tones_states_majmin(X, y)
+			hmm_i = MINIHMM(state)
+			hmm_i.train(X,y,chord_tones_states)
+			self.chord_hmms[state] = hmm_i
 
 	def _train_chord_tones_dt(self, X, y):
 
@@ -442,7 +384,11 @@ class EmissionModel(object):
 
 	def logprob(self, state, obv):
 
-		return self.logprob_freq(state, obv)
+		return self.logprob_chord_tones_hmm(state, obv)
+
+	def logprob_chord_tones_hmm(self,state,obv):
+
+		return self.chord_hmms[state].get_viterbi_logprob(obv)
 
 	def logprob_templates(self, state, obv):
 		"""
@@ -520,7 +466,7 @@ class EmissionModel(object):
 
 	def logprob_freq(self, state, obv):
 
-		prob = self._model[state][obv[0]]
+		prob = self._model[state][obv]
 		return math.log(prob,2)
 
 	def logprob_dt(self, state, obv):
@@ -634,43 +580,6 @@ class EmissionModel(object):
 			N = model[chord]['total']
 			for note in range(self.dim):
 				model[chord][note] = float(model[chord][note]) / N
-
-		self._model = model
-
-	def _train_smooth_frequency_mini(self, X, y, chord_tones):
-
-		model = dict()
-
-		for song in chord_tones:
-			for frame in song:
-				if 0 in frame:
-					print "Shit"
-					print frame
-					raise Exception()
-
-		# Initialise and smooth
-		for state in self.states:
-			model[state] = dict()
-			# Smoothed
-			model[state]['total'] = 1
-			for note in range(self.dim):
-				# Smoothed
-				model[state][note] = 1
-
-		# Count frequencies
-		for i, song in enumerate(X):
-			for j, frame in enumerate(song):
-				if y[i][j] == self.chord:
-					for k, note in enumerate(frame):
-						ct = chord_tones[i][j][k]
-						model[ct][note[0]] += 1
-						model[ct]['total'] += 1
-
-		# Normalise
-		for state in self.states:
-			N = model[state]['total']
-			for note in range(self.dim):
-				model[state][note] = float(model[state][note]) / N
 
 		self._model = model
 

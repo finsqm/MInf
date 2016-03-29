@@ -48,7 +48,7 @@ class HMM(object):
 
 	def test(self, X, y):
 
-		return self._test_max_em(X,y)
+		return self._test_vit(X,y)
 
 	def _test_max_em(self, X, y):
 

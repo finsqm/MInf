@@ -3,7 +3,7 @@ from sklearn import cross_validation
 import csv
 from collections import Counter
 from sklearn.cross_validation import KFold
-from hmm_with_mini_relmin import *
+from hmm_with_mini_majmin import *
 import logging
 import sys
 
@@ -178,11 +178,8 @@ class DataLoader(object):
 			pc = self._get_pc(chord[0])
 
 		tpc = (pc - key) % 12
-
-		if chord_type == 0:
-			return tpc + 1
-		else:
-			return ((tpc + 3) % 12) + 1
+			
+		return chord_type + 1
  
 	def _process_Ai(self,tpc_raw):
 		"""
