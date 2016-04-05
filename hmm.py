@@ -66,7 +66,9 @@ class HMM(object):
 
 		y_pred = []
 		for song in X:
-			y_pred_i = self.viterbi(song)
+			#y_pred_i = self.viterbi(song)
+			L = len(song)
+			y_pred_i = [1]*L
 			y_pred.append(y_pred_i)
 
 		# Compare

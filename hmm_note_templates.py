@@ -436,8 +436,10 @@ class EmissionModel(object):
 				# Major
 				chord_tpc = ((chord + 1) / 2) - 1
 				mode = 1
+			#chord_tpc = chord - 1
 			template = (chord_tpc,(chord_tpc + 3 + mode) % 12,(chord_tpc + 7) % 12)
-			missing = [1,1,1]
+			#template = (chord_tpc,(chord_tpc + 3) % 12,(chord_tpc + 4) % 12,(chord_tpc + 7) % 12)
+			missing = [1,1,1,1]
 			score[chord] = 0
 			for note, dur in obv:
 				if note in template:

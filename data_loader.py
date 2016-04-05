@@ -210,7 +210,9 @@ class DataLoader(object):
 
 		tpc = (pc - key) % 12
 
-		return tpc * 2 + 1 + chord_type  
+		return tpc * 2 + 1 + chord_type
+
+		#return chord_type + 1
 
 	def _process_Ai(self,tpc_raw):
 		"""

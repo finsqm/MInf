@@ -14,7 +14,7 @@ class HMM(object):
 	"""
 	Baseline Hidden Markov Model
 	"""
-	def __init__(self,number_of_states=24,dim=12):
+	def __init__(self,number_of_states=2,dim=12):
 		self.number_of_states = number_of_states
 		self.transition_model = TransitionModel(number_of_states)
 		self.emission_model = EmissionModel(number_of_states,dim)
@@ -75,7 +75,7 @@ class HMM(object):
 					other = 1
 				if (frame == y_pred[i][j]) or (frame + other == y_pred[i][j]):
 					correct += 1
-					print frame
+					#print frame
 
 		return count, correct
 

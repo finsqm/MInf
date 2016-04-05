@@ -180,7 +180,11 @@ class DataLoader(object):
 
 		tpc = (pc - key) % 12
 
-		return tpc * 2 + 1 + chord_type  
+		#return tpc * 2 + 1 + chord_type
+
+		#return tpc + 1
+
+		return chord_type + 1
 
 	def _process_Ai(self,tpc_raw):
 		"""
@@ -379,6 +383,13 @@ class Data(object):
 			if score == max_score:
 				max_index = idx
 				break
+
+		print max_score
+
+		logger.info("Final Test ...")
+
+		count, correct = models[max_index].test(self.XX_test,self.Y_test)
+		logger.info("Final Accuracy: {0}".format(float(correct) / float(count)))
 
 		return models[max_index]
 
